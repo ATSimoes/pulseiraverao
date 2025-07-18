@@ -20,7 +20,8 @@ import {
   collection,
   addDoc,
   onSnapshot,
-  query
+  query,
+  orderBy
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { dataHoje, obterPreco } from "./utils/helpers";
@@ -138,7 +139,7 @@ export default function App() {
       return;
     }
     // Query vendas do dia corrente. Podes ajustar para mostrar vendas globais
-    const q = query(collection(db, "vendas"));
+    const q = query(collection(db, "vendas"), orderBy("numero", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       // Filtrar por data se só quiseres deste turno/dataHoje()
