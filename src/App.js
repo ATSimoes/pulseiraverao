@@ -7,8 +7,6 @@ import Registo from "./pages/Registo";
 import Historico from "./pages/Historico";
 import Menu from "./pages/Menu";
 import GestaoUtilizadores from "./pages/GestaoUtilizadores";
-import { dataHoje, obterPreco } from "./utils/helpers";
-import LateralDrawer from "./components/LateralDrawer";
 import Estatisticas from "./pages/Estatisticas";
 import Fade from "@mui/material/Fade";
 import Card from "@mui/material/Card";
@@ -18,163 +16,188 @@ import Avatar from "@mui/material/Avatar";
 import LogoutIcon from "@mui/icons-material/Logout";
 import PersonIcon from "@mui/icons-material/Person";
 import Chip from "@mui/material/Chip";
+import {
+  collection,
+  addDoc,
+  onSnapshot,
+  query
+} from "firebase/firestore";
+import { db } from "./firebase";
+import { dataHoje, obterPreco } from "./utils/helpers";
 
-// --- Autenticação e configuração iniciais ---
 export default function App() {
-  const [paginaAtual, setPaginaAtual] = useState(
-  () => localStorage.getItem("paginaAtual") || "menu"
-);
-
-useEffect(() => {
-  localStorage.setItem("paginaAtual", paginaAtual);
-}, [paginaAtual]);
-
-
-  // Utilizadores e operador
-  const [utilizadores, setUtilizadores] = useState(() =>
-    JSON.parse(localStorage.getItem("utilizadores") || '[{"nome":"admin","pin":"1234","perfil":"admin"}]')
+  // Página atual
+  const [paginaAtual, setPaginaAtual] = useState(() =>
+    localStorage.getItem("paginaAtual") || "menu"
   );
-  const [operador, setOperador] = useState(() => {
-  const armazenado = localStorage.getItem("operador");
-  return armazenado ? JSON.parse(armazenado) : null;
-});
-  const [loginPin, setLoginPin] = useState("");
-  const [loginNome, setLoginNome] = useState("");
+  useEffect(() => {
+    localStorage.setItem("paginaAtual", paginaAtual);
+  }, [paginaAtual]);
 
-  // Menu Drawer
-  <LateralDrawer
-  paginaAtual={paginaAtual}
-  setPaginaAtual={setPaginaAtual}
-  isAdmin={operador?.perfil === "admin"}
-/>
+  // Operador
+  const [operador, setOperador] = useState(() => {
+    const armazenado = localStorage.getItem("operador");
+    return armazenado ? JSON.parse(armazenado) : null;
+  });
+  const [loginNome, setLoginNome] = useState("");
+  const [loginPin, setLoginPin] = useState("");
+
+  // Utilizadores Firebase
+  const [utilizadores, setUtilizadores] = useState([]);
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, "utilizadores"),
+      (snapshot) => {
+        const lista = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setUtilizadores(lista);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
+
+  // Criar novo utilizador
+  async function criarUtilizador(utilizador) {
+    try {
+      await addDoc(collection(db, "utilizadores"), utilizador);
+    } catch (err) {
+      alert("Erro ao criar utilizador.");
+    }
+  }
+
+  // Login
+  function loginOperador() {
+    const user = utilizadores.find(
+      u => u.nome === loginNome && u.pin === loginPin
+    );
+    if (user) {
+      setOperador(user);
+      localStorage.setItem("operador", JSON.stringify(user));
+      setLoginNome("");
+      setLoginPin("");
+    } else {
+      alert("Credenciais inválidas.");
+    }
+  }
+
+  // Logout
+  function logout() {
+    setOperador(null);
+    localStorage.removeItem("operador");
+  }
 
   // Turno
-const [turnoAberto, setTurnoAberto] = useState(
-  () => JSON.parse(localStorage.getItem("turnoAberto")) || false
-);
-const [horaAbertura, setHoraAbertura] = useState(
-  () => localStorage.getItem("horaAbertura") ? new Date(localStorage.getItem("horaAbertura")) : null
-);
-// Sempre que mudar o turno ou hora, grava:
-useEffect(() => {
-  localStorage.setItem("turnoAberto", JSON.stringify(turnoAberto));
-}, [turnoAberto]);
+  const [turnoAberto, setTurnoAberto] = useState(() =>
+    JSON.parse(localStorage.getItem("turnoAberto")) || false
+  );
+  const [horaAbertura, setHoraAbertura] = useState(() =>
+    localStorage.getItem("horaAbertura")
+      ? new Date(localStorage.getItem("horaAbertura"))
+      : null
+  );
 
-useEffect(() => {
-  if (horaAbertura) {
-    localStorage.setItem("horaAbertura", horaAbertura.toISOString());
-  } else {
-    localStorage.removeItem("horaAbertura");
+  useEffect(() => {
+    localStorage.setItem("turnoAberto", JSON.stringify(turnoAberto));
+  }, [turnoAberto]);
+
+  useEffect(() => {
+    if (horaAbertura) {
+      localStorage.setItem("horaAbertura", horaAbertura.toISOString());
+    } else {
+      localStorage.removeItem("horaAbertura");
+    }
+  }, [horaAbertura]);
+
+  function abrirTurno() {
+    if (!operador) return alert("Autentica-te para abrir turno.");
+    setTurnoAberto(true);
+    const agora = new Date();
+    setHoraAbertura(agora);
   }
-}, [horaAbertura]);
 
-  // Registo vendas
+  function fecharTurno() {
+    setTurnoAberto(false);
+    setHoraAbertura(null);
+  }
+  // ======== VENDAS (Firestore) ========
+  const [vendas, setVendas] = useState([]);
+  const [totalVendas, setTotalVendas] = useState(0);
   const [numeroAtual, setNumeroAtual] = useState(1);
   const [primeiroNumero, setPrimeiroNumero] = useState(1);
   const [novoNumero, setNovoNumero] = useState("");
-  const [vendas, setVendas] = useState(() => {
-  const salvas = localStorage.getItem("vendasAtuais");
-  return salvas ? JSON.parse(salvas) : [];
-});
-useEffect(() => {
-  localStorage.setItem("vendasAtuais", JSON.stringify(vendas));
-}, [vendas]);
-  const [totalVendas, setTotalVendas] = useState(0);
-  const [inputBloqueado, setInputBloqueado] = useState(() => {
-  const salvo = localStorage.getItem("inputBloqueado");
-  return salvo ? JSON.parse(salvo) : false;
-});
+  const [inputBloqueado, setInputBloqueado] = useState(false);
 
-useEffect(() => {
-  localStorage.setItem("inputBloqueado", JSON.stringify(inputBloqueado));
-}, [inputBloqueado]);
-
-
-
-  // Guardar utilizadores no localStorage sempre que mudam
+  // Sincronizar vendas Firestore em tempo real
   useEffect(() => {
-    localStorage.setItem("utilizadores", JSON.stringify(utilizadores));
-  }, [utilizadores]);
-
-  // Login por PIN
-  function loginOperador() {
-  const user = utilizadores.find(u => u.nome === loginNome && u.pin === loginPin);
-  if (user) {
-    setOperador(user);
-    // Guarda no localStorage:
-    localStorage.setItem("operador", JSON.stringify(user));
-    setLoginNome("");
-    setLoginPin("");
-  } else {
-    alert("Nome de utilizador ou PIN incorretos!");
-  }
-}
-  // Turnos
-  function abrirTurno() {
-    if (!operador) {
-      alert("Por favor autentique-se antes de abrir turno.");
+    if (!turnoAberto) {
+      setVendas([]);
+      setTotalVendas(0);
+      setNumeroAtual(primeiroNumero);
       return;
     }
-    setTurnoAberto(true);
-    const now = new Date();
-    setHoraAbertura(now);
-    localStorage.setItem("turnoAberto", "true");
-    localStorage.setItem("horaAbertura", now.toISOString());
-    setVendas([]);
-    setTotalVendas(0);
-  }
-  function fecharTurno() {
-    setVendas([]);
-  setInputBloqueado(false);
-  localStorage.removeItem("vendasAtuais");
-  localStorage.setItem("inputBloqueado", "false");
-    setTurnoAberto(false);
-    setHoraAbertura(null);
-    localStorage.setItem("turnoAberto", "false");
-    localStorage.removeItem("horaAbertura");
-    const now = new Date();
-    alert(
-      `Turno fechado.\nOperador: ${operador?.nome}\nHora abertura: ${horaAbertura?.toLocaleTimeString("pt-PT")}\nHora fecho: ${now.toLocaleTimeString("pt-PT")}\nTotal vendido: ${totalVendas} €`
-    );
+    // Query vendas do dia corrente. Podes ajustar para mostrar vendas globais
+    const q = query(collection(db, "vendas"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Filtrar por data se só quiseres deste turno/dataHoje()
+      // Exemplo: lista.filter(v => v.dataISO.startsWith(dataHojeISO))
+      setVendas(lista);
+      setTotalVendas(
+        lista.reduce((s, venda) => s + (parseFloat(venda.preco) || 0), 0)
+      );
+    });
+    return unsubscribe;
+  }, [turnoAberto, primeiroNumero]);
+  
+  // Função para guardar venda no Firestore
+  async function registarVendaFirestore(venda) {
+    try {
+      await addDoc(collection(db, "vendas"), venda);
+    } catch (error) {
+      alert("ERRO AO GUARDAR VENDA: " + error.message);
+    }
   }
 
-  // Venda de pulseira
+  // Vender vários tipos
   const vender = useCallback(
-    (tipo) => {
+    async (tipo) => {
       if (!operador || !turnoAberto) return;
       const data = new Date();
       const preco = tipo === "pack" ? 0 : obterPreco(tipo, data);
       const novaVenda = {
         numero: numeroAtual,
-        tipo:
-          tipo === "pack"
-            ? "Pack Família"
-            : tipo.charAt(0).toUpperCase() + tipo.slice(1),
+        tipo: tipo === "pack"
+          ? "Pack Família"
+          : tipo.charAt(0).toUpperCase() + tipo.slice(1),
         preco,
         hora: data.toLocaleTimeString("pt-PT"),
         operador: operador ? operador.nome : "-",
+        dataISO: data.toISOString(),
       };
-      setVendas((v) => [...v, novaVenda]);
-      setNumeroAtual((n) => n + 1);
-      setTotalVendas((tot) => +(tot + preco).toFixed(2));
+      await registarVendaFirestore(novaVenda);
+      setNumeroAtual(n => n + 1);
     },
     [numeroAtual, operador, turnoAberto]
   );
-// Vender Azul
-  function venderAzul(numeroManual) {
-  const data = new Date();
-  const novaVenda = {
-    numero: numeroManual,
-    tipo: "Azul (Piscina Interior)",
-    preco: 1.6,
-    hora: data.toLocaleTimeString("pt-PT"),
-    operador: operador?.nome || "-",
-  };
 
-  setVendas((prev) => [...prev, novaVenda]);
-  setTotalVendas((prev) => +(prev + 1.6).toFixed(2));
-}
-  // Atalhos de teclado (F1/F2/F3)
+  // Vender pulseira azul (número manual)
+  async function venderAzul(numeroManual) {
+    if (!operador || !turnoAberto) return;
+    const data = new Date();
+    const novaVenda = {
+      numero: numeroManual,
+      tipo: "Azul (Piscina Interior)",
+      preco: 1.6,
+      hora: data.toLocaleTimeString("pt-PT"),
+      operador: operador?.nome || "-",
+      dataISO: data.toISOString(),
+    };
+    await registarVendaFirestore(novaVenda);
+  }
+
+  // Atalhos Teclado (F1/F2/F3)
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!inputBloqueado || paginaAtual !== "registo" || !turnoAberto || !operador) return;
@@ -186,10 +209,15 @@ useEffect(() => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [inputBloqueado, paginaAtual, vender, operador, turnoAberto]);
 
-  // Exportar CSV
+  // Anular venda (Atenção: eliminação em Firestore só se implementares)
+  async function anularVenda(idx) {
+    alert("Funcionalidade 'anular venda' ainda não elimina no Firestore. Recomenda-se criar uma flag 'anulada' ou guardar o ID no Firestore se quiseres eliminar também na cloud.");
+  }
+
+  // ------------------- EXPORTAÇÃO CSV/PDF -------------------
   const exportarCSV = () => {
     let csv = "Número,Tipo,Valor,Hora,Operador\n";
-    vendas.forEach((v) => {
+    vendas.forEach(v => {
       csv += `${v.numero},${v.tipo},${v.preco},${v.hora},${v.operador || "-"}\n`;
     });
     const blob = new Blob([csv], { type: "text/csv" });
@@ -200,186 +228,188 @@ useEffect(() => {
     a.click();
   };
 
-  // Exportar PDF
   function exportarPDF() {
-    Promise.all([
-      import("jspdf"),
-      import("jspdf-autotable")
-    ]).then(([jsPDFModule, autoTableModule]) => {
-      const jsPDF = jsPDFModule.default;
-      const autoTable = autoTableModule.default;
+    Promise.all([import("jspdf"), import("jspdf-autotable")]).then(
+      ([jsPDFModule, autoTableModule]) => {
+        const jsPDF = jsPDFModule.default;
+        const autoTable = autoTableModule.default;
 
-      const doc = new jsPDF();
-
-      doc.text("Relatório de Vendas de Pulseiras", 10, 10);
-
-      autoTable(doc, {
-        startY: 20,
-        head: [["Número", "Tipo", "Valor", "Hora", "Operador"]],
-        body: vendas.map((v) => [
-          v.numero,
-          v.tipo,
-          v.preco,
-          v.hora,
-          v.operador || "-"
-        ])
-      });
-
-      doc.save(`vendas_${dataHoje()}.pdf`);
-    });
+        const doc = new jsPDF();
+        doc.text("Relatório de Vendas de Pulseiras", 10, 10);
+        autoTable(doc, {
+          startY: 20,
+          head: [["Número", "Tipo", "Valor", "Hora", "Operador"]],
+          body: vendas.map(v => [
+            v.numero,
+            v.tipo,
+            v.preco,
+            v.hora,
+            v.operador || "-"
+          ])
+        });
+        doc.save(`vendas_${dataHoje()}.pdf`);
+      }
+    );
   }
 
-  // Guardar vendas em localStorage
-  useEffect(() => {
-    const h = JSON.parse(localStorage.getItem("historicoPulseiras") || "{}");
-    h[dataHoje()] = vendas;
-    localStorage.setItem("historicoPulseiras", JSON.stringify(h));
-  }, [vendas]);
-
-  // Anular venda (só admin)
-  const anularVenda = (idx) => {
-    if (operador?.perfil !== "admin") return alert("Só o admin pode anular vendas.");
-    if (!window.confirm("Tens a certeza que queres anular esta venda?")) return;
-    const novaLista = [...vendas];
-    const removida = novaLista.splice(idx, 1)[0];
-    setVendas(novaLista);
-    setTotalVendas((prev) => +(prev - removida.preco).toFixed(2));
-  };
-
-  // -- Interface principal --
   return (
     <Box sx={{ bgcolor: "background.default", minHeight: "100vh" }}>
-      {/* Menu topo com tabs dinâmicos admin/funcionário */}
-      <MenuTopo
-        paginaAtual={paginaAtual}
-        setPaginaAtual={setPaginaAtual}
-        isAdmin={operador?.perfil === "admin"}
-      />
-
-      {/* Painel de login */}
-      {!operador && (
+      {!operador ? (
         <Fade in={true} timeout={800}>
-        <Box sx={{ bgcolor: "#fff3e0", p: 3, mb: 4, borderRadius: 2, maxWidth: 400, mx: "auto", boxShadow: 2 }}>
-          <Typography variant="h6" mb={1}>Autenticação</Typography>
-          <select
-            value={loginNome}
-            onChange={e => setLoginNome(e.target.value)}
-            style={{ width: "100%", marginBottom: "12px", padding: 8, borderRadius: 4 }}
+          <Box
+            sx={{
+              bgcolor: "#fff3e0",
+              p: 3,
+              mt: 6,
+              borderRadius: 2,
+              maxWidth: 400,
+              mx: "auto",
+              boxShadow: 2,
+            }}
           >
-            <option value="">Selecione utilizador</option>
-            {utilizadores.map(u => (
-              <option key={u.nome} value={u.nome}>{u.nome}</option>
-            ))}
-          </select>
-          <input
-            value={loginPin}
-            onChange={e => setLoginPin(e.target.value)}
-            type="password"
-            placeholder="PIN"
-            style={{ width: "100%", marginBottom: "12px", padding: 8, borderRadius: 4 }}
-            maxLength={6}
-          />
-          <Button variant="contained" fullWidth size="large" onClick={loginOperador}>Entrar</Button>
-        </Box>
+            <Typography variant="h6" mb={1}>Autenticação</Typography>
+            <select
+              value={loginNome}
+              onChange={e => setLoginNome(e.target.value)}
+              style={{
+                width: "100%",
+                marginBottom: "12px",
+                padding: 8,
+                borderRadius: 4
+              }}
+            >
+              <option value="">Selecione utilizador</option>
+              {utilizadores.map(u => (
+                <option key={u.nome} value={u.nome}>{u.nome}</option>
+              ))}
+            </select>
+            <input
+              value={loginPin}
+              onChange={e => setLoginPin(e.target.value)}
+              type="password"
+              placeholder="PIN"
+              style={{
+                width: "100%",
+                marginBottom: "12px",
+                padding: 8,
+                borderRadius: 4
+              }}
+              maxLength={6}
+            />
+            <Button
+              variant="contained"
+              fullWidth
+              size="large"
+              onClick={loginOperador}
+            >
+              Entrar
+            </Button>
+          </Box>
         </Fade>
-      )}
-
-      {/* Linha de operador logado */}
-      {operador && (
-         <Card
-    elevation={3}
-    sx={{
-      display: "flex",
-      alignItems: "center",
-      maxWidth: 420,
-      mx: "auto",
-      my: 3,
-      px: 3,
-      py: 2,
-      bgcolor: "#fff",
-      borderRadius: 4,
-      boxShadow: 4,
-      gap: 2,
-    }}
-  >
-    <Avatar
-      sx={{
-        width: 54,
-        height: 54,
-        bgcolor: operador.perfil === "admin" ? "primary.main" : "success.main",
-        mr: 2,
-      }}
-    >
-      <PersonIcon sx={{ fontSize: 36, color: "#fff" }} />
-    </Avatar>
-    <CardContent sx={{ flex: 1, p: 0 }}>
-      <strong style={{ fontSize: 17 }}>{operador.nome}</strong>
-      <br />
-      <Chip
-        label={operador.perfil === "admin" ? "Admin" : "Funcionário"}
-        color={operador.perfil === "admin" ? "primary" : "success"}
-        size="small"
-        sx={{ mt: 0.5, fontWeight: 600 }}
-      />
-    </CardContent>
-    <CardActions sx={{ p: 0 }}>
-      <Button
-        variant="outlined"
-        startIcon={<LogoutIcon />}
-        color="error"
-        onClick={() => {
-    setOperador(null);
-    localStorage.removeItem("operador");
-  }}
-        sx={{
-          minWidth: 0,
-          px: 2,
-          fontWeight: 700,
-          "&:hover": { bgcolor: "#ffeaea" },
-        }}
-      >
-        Logout
-      </Button>
-    </CardActions>
-  </Card>
-)}
-
-      {/* Páginas principais */}
-      <Box sx={{ px: { xs: 1, md: 4 }, pb: 4 }}>
-        {paginaAtual === "menu" && <Menu />}
-        {paginaAtual === "registo" && (
-          <Registo
-            vendas={vendas}
-            numeroAtual={numeroAtual}
-            setNumeroAtual={setNumeroAtual}
-            primeiroNumero={primeiroNumero}
-            setPrimeiroNumero={setPrimeiroNumero}
-            setVendas={setVendas}
-            setTotalVendas={setTotalVendas}
-            totalVendas={totalVendas}
-            novoNumero={novoNumero}
-            setNovoNumero={setNovoNumero}
-            inputBloqueado={inputBloqueado}
-            setInputBloqueado={setInputBloqueado}
-            operador={operador}
-            turnoAberto={turnoAberto}
-            abrirTurno={abrirTurno}
-            fecharTurno={fecharTurno}
-            horaAbertura={horaAbertura}
-            vender={vender}
-            anularVenda={anularVenda}
-            exportarCSV={exportarCSV}
-            exportarPDF={exportarPDF}
-            venderAzul={venderAzul}
-
+      ) : (
+        <>
+          {/* Menu Topo */}
+          <MenuTopo
+            paginaAtual={paginaAtual}
+            setPaginaAtual={setPaginaAtual}
+            isAdmin={operador?.perfil === "admin"}
           />
-        )}
-        {paginaAtual === "historico" && <Historico onVoltar={() => setPaginaAtual("menu")} />}
-          {paginaAtual === "estatisticas" && <Estatisticas />}
-        {paginaAtual === "gestao" && operador?.perfil === "admin" && (
-          <GestaoUtilizadores utilizadores={utilizadores} setUtilizadores={setUtilizadores} />
-        )}
-      </Box>
+  
+          {/* Cartão do Operador Logado */}
+          <Card
+            elevation={3}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              maxWidth: 420,
+              mx: "auto",
+              my: 3,
+              px: 3,
+              py: 2,
+              bgcolor: "#fff",
+              borderRadius: 4,
+              boxShadow: 4,
+              gap: 2
+            }}
+          >
+            <Avatar
+              sx={{
+                width: 54,
+                height: 54,
+                bgcolor: operador.perfil === "admin" ? "primary.main" : "success.main",
+                mr: 2
+              }}
+            >
+              <PersonIcon sx={{ fontSize: 36, color: "#fff" }} />
+            </Avatar>
+            <CardContent sx={{ flex: 1, p: 0 }}>
+              <strong style={{ fontSize: 17 }}>{operador.nome}</strong><br />
+              <Chip
+                label={operador.perfil === "admin" ? "Admin" : "Funcionário"}
+                color={operador.perfil === "admin" ? "primary" : "success"}
+                size="small"
+                sx={{ mt: 0.5, fontWeight: 600 }}
+              />
+            </CardContent>
+            <CardActions sx={{ p: 0 }}>
+              <Button
+                variant="outlined"
+                startIcon={<LogoutIcon />}
+                color="error"
+                onClick={logout}
+                sx={{
+                  minWidth: 0,
+                  px: 2,
+                  fontWeight: 700,
+                  "&:hover": { bgcolor: "#ffeaea" }
+                }}
+              >
+                Logout
+              </Button>
+            </CardActions>
+          </Card>
+  
+          {/* Conteúdo principal da aplicação */}
+          <Box sx={{ px: { xs: 1, md: 4 }, pb: 4 }}>
+            {paginaAtual === "menu" && <Menu />}
+            {paginaAtual === "registo" && (
+              <Registo
+                vendas={vendas}
+                numeroAtual={numeroAtual}
+                setNumeroAtual={setNumeroAtual}
+                primeiroNumero={primeiroNumero}
+                setPrimeiroNumero={setPrimeiroNumero}
+                setTotalVendas={setTotalVendas}
+                totalVendas={totalVendas}
+                novoNumero={novoNumero}
+                setNovoNumero={setNovoNumero}
+                inputBloqueado={inputBloqueado}
+                setInputBloqueado={setInputBloqueado}
+                operador={operador}
+                vendedor={operador}
+                turnoAberto={turnoAberto}
+                abrirTurno={abrirTurno}
+                fecharTurno={fecharTurno}
+                horaAbertura={horaAbertura}
+                vender={vender}
+                venderAzul={venderAzul}
+                anularVenda={anularVenda}
+                exportarCSV={exportarCSV}
+                exportarPDF={exportarPDF}
+              />
+            )}
+            {paginaAtual === "historico" && (
+              <Historico onVoltar={() => setPaginaAtual("menu")} vendas={vendas} />
+            )}
+            {paginaAtual === "estatisticas" && <Estatisticas vendas={vendas} />}
+            {paginaAtual === "gestao" && operador?.perfil === "admin" && (
+              <GestaoUtilizadores
+                utilizadores={utilizadores}
+                criarUtilizador={criarUtilizador}
+              />
+            )}
+          </Box>
+        </>
+      )}
     </Box>
-  );
-}
+  );}

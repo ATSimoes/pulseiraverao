@@ -13,52 +13,73 @@ import {
   Paper,
 } from "@mui/material";
 import { formatMoney } from "../utils/helpers";
+import { db } from "../firebase";
+import { collection, onSnapshot } from "firebase/firestore";
 
 export default function Historico({ onVoltar }) {
-  const [historico, setHistorico] = useState({});
+  const [todasAsVendas, setTodasAsVendas] = useState([]);
+  const [diasDisponiveis, setDiasDisponiveis] = useState([]);
   const [diaSelecionado, setDiaSelecionado] = useState("");
   const [vendasSelecionadas, setVendasSelecionadas] = useState([]);
 
   useEffect(() => {
-    const h = JSON.parse(localStorage.getItem("historicoPulseiras") || "{}");
-    setHistorico(h);
+    const unsub = onSnapshot(collection(db, "vendas"), (snapshot) => {
+      const vendas = snapshot.docs.map((doc) => doc.data());
+      setTodasAsVendas(vendas);
+
+      // Extrai datas únicas formatadas como AAAA-MM-DD
+      const datas = Array.from(
+        new Set(
+          vendas
+            .map((v) => v.dataISO?.substring(0, 10))
+            .filter((d) => !!d)
+        )
+      ).sort((a, b) => b.localeCompare(a)); // ordenado decrescente
+      setDiasDisponiveis(datas);
+    });
+    return unsub;
   }, []);
 
   useEffect(() => {
-    if (diaSelecionado && historico[diaSelecionado]) {
-      setVendasSelecionadas(historico[diaSelecionado]);
+    if (diaSelecionado) {
+      const filtradas = todasAsVendas.filter((v) =>
+        v.dataISO?.startsWith(diaSelecionado)
+      );
+      setVendasSelecionadas(filtradas);
     } else {
       setVendasSelecionadas([]);
     }
-  }, [diaSelecionado, historico]);
+  }, [diaSelecionado, todasAsVendas]);
 
   return (
     <Box>
       <Button onClick={onVoltar} variant="outlined" sx={{ mb: 2 }}>
         Voltar ao Menu
       </Button>
+
       <Typography variant="h5">Histórico de Vendas</Typography>
-      {Object.keys(historico).length === 0 && (
+
+      {diasDisponiveis.length === 0 && (
         <Typography sx={{ mt: 2 }}>
           Ainda não existem vendas guardadas.
         </Typography>
       )}
-      {Object.keys(historico).length > 0 && (
+
+      {diasDisponiveis.length > 0 && (
         <Box sx={{ mt: 2 }}>
           <Typography>Seleciona um dia:</Typography>
           <Stack direction="row" spacing={2} sx={{ my: 2, flexWrap: "wrap" }}>
-            {Object.keys(historico)
-              .sort((a, b) => b.localeCompare(a))
-              .map((data) => (
-                <Button
-                  key={data}
-                  variant={data === diaSelecionado ? "contained" : "outlined"}
-                  onClick={() => setDiaSelecionado(data)}
-                >
-                  {data}
-                </Button>
-              ))}
+            {diasDisponiveis.map((data) => (
+              <Button
+                key={data}
+                variant={data === diaSelecionado ? "contained" : "outlined"}
+                onClick={() => setDiaSelecionado(data)}
+              >
+                {data}
+              </Button>
+            ))}
           </Stack>
+
           {vendasSelecionadas.length > 0 && (
             <TableContainer component={Paper}>
               <Table>
