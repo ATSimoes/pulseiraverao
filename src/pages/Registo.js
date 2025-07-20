@@ -52,17 +52,20 @@ export default function Registo({
 
   // Anular venda (apaga do Firestore)
   async function anularVenda(venda) {
-    if (operador?.perfil !== "admin") {
-      return alert("Só o admin pode anular vendas.");
-    }
-    if (!window.confirm("Deseja anular esta venda?")) return;
-    try {
-      await deleteDoc(doc(db, "vendas", venda.id));
-    } catch (e) {
-      alert("Erro ao anular venda.");
-      console.error(e);
-    }
+  // Permitir apagar apenas se o operador atual for o dono da venda
+  if (operador?.nome !== venda.operador) {
+    return alert("Só podes eliminar as vendas que fizeste.");
   }
+
+  if (!window.confirm("Deseja anular esta venda?")) return;
+
+  try {
+    await deleteDoc(doc(db, "vendas", venda.id));
+  } catch (e) {
+    alert("Erro ao anular venda.");
+    console.error(e);
+  }
+}
 
   return (
     <Grow in={true} timeout={650}>
@@ -326,7 +329,8 @@ export default function Registo({
                           onClick={() => anularVenda(venda)}
                           size="small"
                           color="error"
-                          disabled={operador?.perfil !== "admin"}
+                          disabled={venda.operador !== operador?.nome}
+
                         >
                           <DeleteIcon />
                         </IconButton>

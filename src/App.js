@@ -21,10 +21,12 @@ import {
   addDoc,
   onSnapshot,
   query,
-  orderBy
+  orderBy,
+  where
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { dataHoje, obterPreco } from "./utils/helpers";
+import AdminVendas from "./pages/AdminVendas";
 
 export default function App() {
   // Página atual
@@ -114,6 +116,7 @@ export default function App() {
   function abrirTurno() {
     if (!operador) return alert("Autentica-te para abrir turno.");
     setTurnoAberto(true);
+    setInputBloqueado(true);
     const agora = new Date();
     setHoraAbertura(agora);
   }
@@ -121,7 +124,14 @@ export default function App() {
   function fecharTurno() {
     setTurnoAberto(false);
     setHoraAbertura(null);
+    setInputBloqueado(false);
   }
+
+  useEffect(() => {
+  if (operador && turnoAberto) {
+    setInputBloqueado(true);
+  }
+}, [operador, turnoAberto]);
   // ======== VENDAS (Firestore) ========
   const [vendas, setVendas] = useState([]);
   const [totalVendas, setTotalVendas] = useState(0);
@@ -139,7 +149,15 @@ export default function App() {
       return;
     }
     // Query vendas do dia corrente. Podes ajustar para mostrar vendas globais
-    const q = query(collection(db, "vendas"), orderBy("numero", "desc"));
+    const hojeISO = new Date().toISOString().slice(0, 10); // AAAA-MM-DD
+
+    const q = query(
+      collection(db, "vendas"),
+      where("operador", "==", operador?.nome || ""),
+      where("dataISO", ">=", `${hojeISO}T00:00:00`),
+      where("dataISO", "<=", `${hojeISO}T23:59:59`),
+      orderBy("dataISO", "desc")
+    );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       // Filtrar por data se só quiseres deste turno/dataHoje()
@@ -150,7 +168,7 @@ export default function App() {
       );
     });
     return unsubscribe;
-  }, [turnoAberto, primeiroNumero]);
+  }, [turnoAberto, primeiroNumero, operador]);
   
   // Função para guardar venda no Firestore
   async function registarVendaFirestore(venda) {
@@ -403,6 +421,9 @@ export default function App() {
               <Historico onVoltar={() => setPaginaAtual("menu")} vendas={vendas} />
             )}
             {paginaAtual === "estatisticas" && <Estatisticas vendas={vendas} />}
+            {paginaAtual === "admin" && operador?.perfil === "admin" && (
+  <AdminVendas />
+)}
             {paginaAtual === "gestao" && operador?.perfil === "admin" && (
               <GestaoUtilizadores
                 utilizadores={utilizadores}

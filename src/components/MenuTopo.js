@@ -9,6 +9,7 @@ export default function MenuTopo({ paginaAtual, setPaginaAtual, isAdmin }) {
     { value: "estatisticas", label: "Estatísticas" },
   ];
   if (isAdmin) tabs.push({ value: "gestao", label: "Gestão de Utilizadores" });
+  if (isAdmin) tabs.push({ value: "admin", label: "Vendas Totais Admin" });
 
   return (
     <AppBar position="static" sx={{ mb: 3, bgcolor: "#1565c0" }}>
