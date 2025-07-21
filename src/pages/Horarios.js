@@ -141,79 +141,48 @@ export default function Horarios({ operador, utilizadores }) {
 
   function TurnoCell({ nomes, dia }) {
     const arrNomes = Array.isArray(nomes) ? nomes : nomes ? [nomes] : [];
+  
     if (!arrNomes.length) return "-";
   
     return (
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-        {arrNomes.map(n => {
+        {arrNomes.map((n) => {
           const emFerias = ferias.some(f => f.colaborador === n && dia >= f.inicio && dia <= f.fim);
           const emFolga = folgas.some(f => f.colaborador === n && f.data === dia);
   
-          if (emFerias) {
-            // Se está escalado para o turno MAS está de férias, podes exibir com opacidade, riscado, ou badge "de férias"
+          if (emFerias || emFolga) {
             return (
               <Box
-                key={`${n}-ferias-${dia}`}
+                key={`${n}-ausente-${dia}`}
                 sx={{
-                  bgcolor: "#ffb74d",
-                  color: "#fff",
-                  borderRadius: 9,
-                  px: 1.1,
-                  mr: 0.4,
-                  fontWeight: 700,
+                  bgcolor: emFerias ? "#ffb74d" : "#b0bec5",
+                  color: emFerias ? "#fff" : "#263238",
                   fontSize: "11px",
-                  height: 22,
-                  opacity: 0.57,
-                  textDecoration: 'line-through',
-                  display: "flex",
-                  alignItems: "center"
+                  fontWeight: 500,
+                  opacity: 0.6,
+                  fontStyle: "italic",
+                  borderRadius: "12px",
+                  px: 1,
+                  py: 0.5,
                 }}
-                title="De férias"
+                title={emFerias ? "De férias" : "De folga"}
               >
                 {n}
               </Box>
             );
           }
-          if (emFolga) {
-            // Se está de folga, mesmo estando escalado, mostra menor destaque
-            return (
-              <Box
-                key={`${n}-folga-${dia}`}
-                sx={{
-                  bgcolor: "#b0bec5",
-                  color: "#263238",
-                  borderRadius: 9,
-                  px: 1.1,
-                  mr: 0.4,
-                  fontWeight: 700,
-                  fontSize: "11px",
-                  height: 22,
-                  opacity: 0.57,
-                  textDecoration: 'line-through',
-                  display: "flex",
-                  alignItems: "center"
-                }}
-                title="Folga"
-              >
-                {n}
-              </Box>
-            );
-          }
-          // Presença normal
+  
           return (
             <Box
               key={n}
               sx={{
                 bgcolor: corDoUtilizador(n),
                 color: "#fff",
-                borderRadius: 9,
-                px: 1.1,
-                mr: 0.4,
-                fontWeight: 500,
                 fontSize: "11px",
-                height: 22,
-                display: "flex",
-                alignItems: "center"
+                fontWeight: 500,
+                borderRadius: "12px",
+                px: 1,
+                py: 0.5,
               }}
             >
               {n}
@@ -223,6 +192,7 @@ export default function Horarios({ operador, utilizadores }) {
       </Box>
     );
   }
+  
   
   
 

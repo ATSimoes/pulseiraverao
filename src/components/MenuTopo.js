@@ -11,7 +11,11 @@ export default function MenuTopo({ paginaAtual, setPaginaAtual, isAdmin }) {
   ];
   if (isAdmin) tabs.push({ value: "gestao", label: "Gestão de Utilizadores" });
   if (isAdmin) tabs.push({ value: "admin", label: "Vendas Totais Admin" });
+<<<<<<< HEAD
   if (isAdmin) tabs.push({ value: "alertas", label: "Enviar Alertas" });
+=======
+
+>>>>>>> f134ee1e8e2f5a7685ec1624f05c6d4ad212b7f7
   return (
     <AppBar position="static" sx={{ mb: 3, bgcolor: "#1565c0" }}>
       <Toolbar sx={{ justifyContent: "center" }}>

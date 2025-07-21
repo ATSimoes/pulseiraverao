@@ -27,10 +27,13 @@ import {
 import { db } from "./firebase";
 import { dataHoje, obterPreco } from "./utils/helpers";
 import AdminVendas from "./pages/AdminVendas";
+<<<<<<< HEAD
 import AlertaTempoReal from "./components/AlertaTempoReal";
 import EnviarAlerta from "./pages/EnviarAlerta";
 import Horarios from "./pages/Horarios";
 
+=======
+>>>>>>> f134ee1e8e2f5a7685ec1624f05c6d4ad212b7f7
 
 export default function App() {
   // Página atual
@@ -135,7 +138,10 @@ export default function App() {
   if (operador && turnoAberto) {
     setInputBloqueado(true);
   }
+<<<<<<< HEAD
   
+=======
+>>>>>>> f134ee1e8e2f5a7685ec1624f05c6d4ad212b7f7
 }, [operador, turnoAberto]);
   // ======== VENDAS (Firestore) ========
   const [vendas, setVendas] = useState([]);
@@ -470,10 +476,13 @@ export default function App() {
               <Historico onVoltar={() => setPaginaAtual("menu")} vendas={vendas} />
             )}
             {paginaAtual === "estatisticas" && <Estatisticas vendas={vendas} />}
+<<<<<<< HEAD
             {paginaAtual === "horarios" && (
   <Horarios operador={operador} utilizadores={utilizadores} />
 )}
 
+=======
+>>>>>>> f134ee1e8e2f5a7685ec1624f05c6d4ad212b7f7
             {paginaAtual === "admin" && operador?.perfil === "admin" && (
   <AdminVendas />
 )}
