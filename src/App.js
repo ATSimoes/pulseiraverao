@@ -140,7 +140,15 @@ export default function App() {
   // ======== VENDAS (Firestore) ========
   const [vendas, setVendas] = useState([]);
   const [totalVendas, setTotalVendas] = useState(0);
-  const [numeroAtual, setNumeroAtual] = useState(1);
+  const [numeroAtual, setNumeroAtual] = useState(() => {
+  const guardado = localStorage.getItem("numeroAtual");
+  return guardado ? parseInt(guardado, 10) : 1;
+});
+
+useEffect(() => {
+  localStorage.setItem("numeroAtual", numeroAtual.toString());
+}, [numeroAtual]);
+
   const [primeiroNumero, setPrimeiroNumero] = useState(1);
   const [novoNumero, setNovoNumero] = useState("");
   const [inputBloqueado, setInputBloqueado] = useState(false);
