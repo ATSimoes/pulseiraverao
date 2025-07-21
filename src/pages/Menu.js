@@ -8,7 +8,7 @@ const LOGO_URL = "/logos-municipios-01.png";
 
 export default function Menu() {
   return (
-    <Box sx={{ position: "relative", minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center", mt: { xs: 8, md: 12 }}}>
+    <Box sx={{ backgroundColor: "transparent",position: "relative", minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center", mt: { xs: 8, md: 12 }}}>
       {/* Fundo com logotipo em transparência */}
       <Box
         sx={{

@@ -5,6 +5,11 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  background: 
+    linear-gradient(120deg, rgba(255,255,255,0.92) 60%, rgba(245,245,245,0.94) 100%),
+    url('/bg-main.png') center center/cover no-repeat fixed;
+  background-blend-mode: lighten;
 }
 
 code {

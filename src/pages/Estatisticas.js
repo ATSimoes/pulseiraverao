@@ -249,22 +249,53 @@ export default function Estatisticas() {
             <Typography variant="h6" gutterBottom>
               Distribuição Percentual
             </Typography>
-            <ResponsiveContainer width="150%" height={200}>
+            <ResponsiveContainer width="150%" height={220}>
               <PieChart>
+              <Legend
+  content={({ payload }) => (
+    <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+      {payload.map((entry, index) => (
+        <li
+          key={`item-${index}`}
+          style={{
+            fontSize: 11,          // <--- tamanho pequeno
+            color: "#444",
+            marginBottom: 3,
+            display: "flex",
+            alignItems: "center"
+          }}
+        >
+          <span
+            style={{
+              display: "inline-block",
+              width: 12,
+              height: 12,
+              background: entry.color,
+              marginRight: 6,
+              borderRadius: "50%",
+              border: "1px solid #ccc"
+            }}
+          ></span>
+          {entry.value}
+        </li>
+      ))}
+    </ul>
+  )}
+/>
                 <Pie
                   data={pieData}
                   dataKey="value"
                   nameKey="name"
                   cx="50%"
                   cy="50%"
-                  outerRadius={70}
+                  outerRadius={55}
                   label
                 >
                   {pieData.map((entry) => (
                     <Cell key={entry.name} fill={tipoToCor(entry.name)} />
                   ))}
                 </Pie>
-                <Legend />
+               
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>

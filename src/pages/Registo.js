@@ -21,6 +21,12 @@ import AddIcon from '@mui/icons-material/Add';
 import { formatMoney } from "../utils/helpers";
 import { db } from "../firebase";
 import { deleteDoc, doc } from "firebase/firestore";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+
+
 
 export default function Registo({
   vendas,
@@ -42,8 +48,12 @@ export default function Registo({
   venderAzul,
   exportarCSV,
   exportarPDF,
+  venderPromoFamiliar
 }) {
   const [numeroAzul, setNumeroAzul] = useState("");
+  const [openPromoFamiliar, setOpenPromoFamiliar] = useState(false);
+const [numerosPromo, setNumerosPromo] = useState(["", "", "", ""]);
+
 
   function iniciar() {
     setNumeroAtual(primeiroNumero);
@@ -52,17 +62,20 @@ export default function Registo({
 
   // Anular venda (apaga do Firestore)
   async function anularVenda(venda) {
-    if (operador?.perfil !== "admin") {
-      return alert("Só o admin pode anular vendas.");
-    }
-    if (!window.confirm("Deseja anular esta venda?")) return;
-    try {
-      await deleteDoc(doc(db, "vendas", venda.id));
-    } catch (e) {
-      alert("Erro ao anular venda.");
-      console.error(e);
-    }
+  // Permitir apagar apenas se o operador atual for o dono da venda
+  if (operador?.nome !== venda.operador) {
+    return alert("Só podes eliminar as vendas que fizeste.");
   }
+
+  if (!window.confirm("Deseja anular esta venda?")) return;
+
+  try {
+    await deleteDoc(doc(db, "vendas", venda.id));
+  } catch (e) {
+    alert("Erro ao anular venda.");
+    console.error(e);
+  }
+}
 
   return (
     <Grow in={true} timeout={650}>
@@ -97,7 +110,7 @@ export default function Registo({
                 Abrir Turno
               </Button>
             )}
-            {turnoAberto && (
+            {turnoAberto && operador && (
               <Button
                 onClick={fecharTurno}
                 startIcon={<AddIcon />}
@@ -193,6 +206,18 @@ export default function Registo({
               >
                 Pack Família (F3)
               </Button>
+
+              <Button
+                onClick={() => setOpenPromoFamiliar(true)}
+                startIcon={<AddIcon />}
+                variant="contained"
+                color="success"
+                sx={{ borderRadius: 8, minWidth: 220, fontWeight: 600 }}
+                disabled={!turnoAberto}
+              >
+                Promo Família (4 Pulseiras / F4)
+              </Button>
+
 
               {/* Mudar número da série */}
               <TextField
@@ -326,7 +351,8 @@ export default function Registo({
                           onClick={() => anularVenda(venda)}
                           size="small"
                           color="error"
-                          disabled={operador?.perfil !== "admin"}
+                          disabled={venda.operador !== operador?.nome}
+
                         >
                           <DeleteIcon />
                         </IconButton>
@@ -338,6 +364,48 @@ export default function Registo({
             </Table>
           </TableContainer>
         </div>
+        <Dialog open={openPromoFamiliar} onClose={() => setOpenPromoFamiliar(false)}>
+  <DialogTitle>Promo Família — Números das 4 Pulseiras</DialogTitle>
+  <DialogContent>
+    <Stack spacing={2} mt={1}>
+      {numerosPromo.map((num, idx) => (
+        <TextField
+          key={idx}
+          label={`Nº Pulseira ${idx + 1}`}
+          value={num}
+          type="number"
+          onChange={e => {
+            const novo = [...numerosPromo];
+            novo[idx] = e.target.value;
+            setNumerosPromo(novo);
+          }}
+          size="small"
+        />
+      ))}
+    </Stack>
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setOpenPromoFamiliar(false)}>Cancelar</Button>
+    <Button
+      onClick={async () => {
+        if (numerosPromo.some(n => !n)) {
+          alert("Preenche todos os campos.");
+          return;
+        }
+        const data = new Date();
+        for (let numero of numerosPromo) {
+          await venderPromoFamiliar(Number(numero), data);
+        }
+        setOpenPromoFamiliar(false);
+        setNumerosPromo(["", "", "", ""]);
+      }}
+      variant="contained"
+    >
+      Registar 4 Pulseiras
+    </Button>
+  </DialogActions>
+</Dialog>
+
       </Paper>
     </Grow>
   );

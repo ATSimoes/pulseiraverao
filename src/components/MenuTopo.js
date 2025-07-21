@@ -7,9 +7,11 @@ export default function MenuTopo({ paginaAtual, setPaginaAtual, isAdmin }) {
     { value: "registo", label: "Registo de Pulseiras" },
     { value: "historico", label: "Histórico de Vendas" },
     { value: "estatisticas", label: "Estatísticas" },
+    { value: "horarios", label: "Horario" },
   ];
   if (isAdmin) tabs.push({ value: "gestao", label: "Gestão de Utilizadores" });
-
+  if (isAdmin) tabs.push({ value: "admin", label: "Vendas Totais Admin" });
+  if (isAdmin) tabs.push({ value: "alertas", label: "Enviar Alertas" });
   return (
     <AppBar position="static" sx={{ mb: 3, bgcolor: "#1565c0" }}>
       <Toolbar sx={{ justifyContent: "center" }}>

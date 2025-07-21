@@ -21,10 +21,16 @@ import {
   addDoc,
   onSnapshot,
   query,
-  orderBy
+  orderBy,
+  where
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { dataHoje, obterPreco } from "./utils/helpers";
+import AdminVendas from "./pages/AdminVendas";
+import AlertaTempoReal from "./components/AlertaTempoReal";
+import EnviarAlerta from "./pages/EnviarAlerta";
+import Horarios from "./pages/Horarios";
+
 
 export default function App() {
   // Página atual
@@ -114,6 +120,7 @@ export default function App() {
   function abrirTurno() {
     if (!operador) return alert("Autentica-te para abrir turno.");
     setTurnoAberto(true);
+    setInputBloqueado(true);
     const agora = new Date();
     setHoraAbertura(agora);
   }
@@ -121,7 +128,15 @@ export default function App() {
   function fecharTurno() {
     setTurnoAberto(false);
     setHoraAbertura(null);
+    setInputBloqueado(false);
   }
+
+  useEffect(() => {
+  if (operador && turnoAberto) {
+    setInputBloqueado(true);
+  }
+  
+}, [operador, turnoAberto]);
   // ======== VENDAS (Firestore) ========
   const [vendas, setVendas] = useState([]);
   const [totalVendas, setTotalVendas] = useState(0);
@@ -139,7 +154,15 @@ export default function App() {
       return;
     }
     // Query vendas do dia corrente. Podes ajustar para mostrar vendas globais
-    const q = query(collection(db, "vendas"), orderBy("numero", "desc"));
+    const hojeISO = new Date().toISOString().slice(0, 10); // AAAA-MM-DD
+
+    const q = query(
+      collection(db, "vendas"),
+      where("operador", "==", operador?.nome || ""),
+      where("dataISO", ">=", `${hojeISO}T00:00:00`),
+      where("dataISO", "<=", `${hojeISO}T23:59:59`),
+      orderBy("dataISO", "desc")
+    );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       // Filtrar por data se só quiseres deste turno/dataHoje()
@@ -150,7 +173,7 @@ export default function App() {
       );
     });
     return unsubscribe;
-  }, [turnoAberto, primeiroNumero]);
+  }, [turnoAberto, primeiroNumero, operador]);
   
   // Função para guardar venda no Firestore
   async function registarVendaFirestore(venda) {
@@ -166,6 +189,25 @@ export default function App() {
     async (tipo) => {
       if (!operador || !turnoAberto) return;
       const data = new Date();
+       // Promo Família Sáb e Dom: 4 pulseiras = 10€
+    if (tipo === "promo_familiar") {
+      const diaSemana = data.getDay(); // 0=Dom, 6=Sáb
+      if (diaSemana === 0 || diaSemana === 6) {
+        const novaVenda = {
+          numero: numeroAtual,
+          tipo: "Promo Família (4 Pulseiras)",
+          preco: 10,
+          hora: data.toLocaleTimeString("pt-PT"),
+          operador: operador.nome,
+          dataISO: data.toISOString(),
+        };
+        await registarVendaFirestore(novaVenda);
+        setNumeroAtual(n => n + 4); // Incrementa logo 4 pulseiras (opcional)
+      } else {
+        alert("Promoção só disponível ao sábado e domingo!");
+      }
+      return;
+    }
       const preco = tipo === "pack" ? 0 : obterPreco(tipo, data);
       const novaVenda = {
         numero: numeroAtual,
@@ -198,6 +240,26 @@ export default function App() {
     await registarVendaFirestore(novaVenda);
   }
 
+  async function venderPromoFamiliar(numero, data) {
+    const diaSemana = data.getDay(); // 0 = Domingo, 6 = Sábado
+    if (diaSemana !== 6 && diaSemana !== 0) {
+      alert("Promoção só disponível ao sábado e domingo!");
+      return;
+    }
+  
+    const novaVenda = {
+      numero,
+      tipo: "Promo Família (4 Pulseiras)",
+      preco: 2.5,
+      hora: data.toLocaleTimeString("pt-PT"),
+      operador: operador?.nome || "-",
+      dataISO: data.toISOString(),
+    };
+  
+    await registarVendaFirestore(novaVenda);
+  }
+  
+
   // Atalhos Teclado (F1/F2/F3)
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -205,6 +267,7 @@ export default function App() {
       if (e.key === "F1") { e.preventDefault(); vender("adulto"); }
       if (e.key === "F2") { e.preventDefault(); vender("menor"); }
       if (e.key === "F3") { e.preventDefault(); vender("pack"); }
+      if (e.key === "F4") { e.preventDefault(); vender("promo_familiar"); }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -315,6 +378,9 @@ export default function App() {
             setPaginaAtual={setPaginaAtual}
             isAdmin={operador?.perfil === "admin"}
           />
+
+            {/* ALERTAS EM TEMPO REAL */}
+            <AlertaTempoReal operador={operador} />
   
           {/* Cartão do Operador Logado */}
           <Card
@@ -397,18 +463,29 @@ export default function App() {
                 anularVenda={anularVenda}
                 exportarCSV={exportarCSV}
                 exportarPDF={exportarPDF}
+                venderPromoFamiliar={venderPromoFamiliar}
               />
             )}
             {paginaAtual === "historico" && (
               <Historico onVoltar={() => setPaginaAtual("menu")} vendas={vendas} />
             )}
             {paginaAtual === "estatisticas" && <Estatisticas vendas={vendas} />}
+            {paginaAtual === "horarios" && (
+  <Horarios operador={operador} utilizadores={utilizadores} />
+)}
+
+            {paginaAtual === "admin" && operador?.perfil === "admin" && (
+  <AdminVendas />
+)}
             {paginaAtual === "gestao" && operador?.perfil === "admin" && (
               <GestaoUtilizadores
                 utilizadores={utilizadores}
                 criarUtilizador={criarUtilizador}
               />
             )}
+            {paginaAtual === "alertas" && operador?.perfil === "admin" && (
+  <EnviarAlerta />
+)}
           </Box>
         </>
       )}
