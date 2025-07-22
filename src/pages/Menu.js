@@ -2,6 +2,7 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Paper from "@mui/material/Paper";
 import Divider from "@mui/material/Divider";
+import Tilt from "react-parallax-tilt";
 
 // Substituir pelo URL/local do teu logotipo
 const LOGO_URL = "/logos-municipios-01.png";
@@ -42,6 +43,17 @@ export default function Menu() {
           mt: { xs: 3, md: 6 },
         }}
       >
+        <Tilt glareEnable glareMaxOpacity={0.19} scale={1.05}>
+  <img src="/favicon.png"
+       alt="Logo"
+       style={{
+         width: 180,
+         margin: "40px auto",
+         display: "block",
+         filter: "drop-shadow(0 0 20px #00eaffcf)"
+       }}
+  />
+</Tilt>
         <Typography variant="h3" color="primary" fontWeight={700} mb={2} align="center">
           Sistema de Registo <br /> de Pulseiras de Verão
         </Typography>
