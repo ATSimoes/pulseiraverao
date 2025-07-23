@@ -122,84 +122,115 @@ export default function AdminVendas() {
 
   // === Exportação PDF ===
   function exportarPDF() {
-    const doc = new jsPDF();
+  const doc = new jsPDF();
 
-    // Logo topo
-    const logoW = 22, logoH = 22;
-    doc.addImage(logoBase64, "PNG", 10, 10, logoW, logoH);
+  // Logo topo
+  const logoW = 22, logoH = 22;
+  doc.addImage(logoBase64, "PNG", 10, 10, logoW, logoH);
 
-    // Título centralizado
-    doc.setFontSize(16);
-    doc.text("Relatório de Vendas", 75, 17);
+  // Título centralizado
+  doc.setFontSize(16);
+  doc.text("Relatório de Vendas", 75, 17);
 
-    let y = 45;
+  let y = 45;
 
-    // Totais globais
-    doc.setFontSize(12);
-    doc.text(`Total Vendas: ${totalQuant} | Valor: ${totalValor.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}`, 10, y);
+  // Totais globais
+  doc.setFontSize(12);
+  doc.text(`Total Vendas: ${totalQuant} | Valor: ${totalValor.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}`, 10, y);
 
-    y += 8;
+  y += 8;
 
-    // Totais por tipo (mini-tabela)
-    doc.setFontSize(11);
-    doc.text("Totais por tipo de pulseira:", 10, y);
-    y += 4;
-    const headTipos = [["Tipo", "Qt.", "Total €"]];
-    const rowsTipos = Object.entries(totaisPorTipo).map(([tipo, info]) => [
-      tipo, info.quantidade, info.valor.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })
-    ]);
-    autoTable(doc, {
-      head: headTipos,
-      body: rowsTipos,
-      startY: y,
-      didDrawPage: () => {},
-      theme: "striped",
-      headStyles: { fillColor: [30, 136, 229] },
-      styles: { cellPadding: 1.2, fontSize: 9 }
-    });
+  // Totais por método de pagamento
+  const totaisMetodo = { dinheiro: { qt: 0, valor: 0 }, multibanco: { qt: 0, valor: 0 } };
+  vendasFiltradas.forEach(v => {
+    const m = (v.metodoPagamento || "dinheiro").toLowerCase();
+    if (!totaisMetodo[m]) totaisMetodo[m] = { qt: 0, valor: 0 };
+    totaisMetodo[m].qt += 1;
+    totaisMetodo[m].valor += parseFloat(v.preco || 0);
+  });
 
-    y = doc.lastAutoTable.finalY + 7;
+  doc.setFontSize(11);
+  doc.text("Totais por tipo de pagamento:", 10, y);
+  y += 4;
 
-    // Totais por operador (mini-tabela)
-    doc.text("Totais por operador:", 10, y);
-    y += 4;
-    const headOps = [["Operador", "Qt.", "Total €"]];
-    const rowsOps = Object.entries(totaisPorOperador).map(([op, info]) => [
-      op, info.quantidade, info.valor.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })
-    ]);
-    autoTable(doc, {
-      head: headOps,
-      body: rowsOps,
-      startY: y,
-      theme: "striped",
-      headStyles: { fillColor: [46, 125, 50] },
-      styles: { cellPadding: 1.2, fontSize: 9 }
-    });
+  const headMetodo = [["Método", "Qt.", "Total €"]];
+  const rowsMetodo = [
+    ["Dinheiro", totaisMetodo.dinheiro.qt, totaisMetodo.dinheiro.valor.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })],
+    ["Multibanco", totaisMetodo.multibanco.qt, totaisMetodo.multibanco.valor.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })],
+  ];
+  autoTable(doc, {
+    head: headMetodo,
+    body: rowsMetodo,
+    startY: y,
+    theme: "striped",
+    headStyles: { fillColor: [224, 224, 224] },
+    styles: { cellPadding: 1.2, fontSize: 9 }
+  });
 
-    y = doc.lastAutoTable.finalY + 9;
+  y = doc.lastAutoTable.finalY + 7;
 
-    // Vendas visíveis (tabela grande)
-    doc.setFontSize(12);
-    doc.text("Vendas listadas:", 10, y);
-    y += 3;
-    autoTable(doc, {
-      head: [["Número", "Tipo", "Valor", "Hora", "Operador", "Data"]],
-      body: vendasFiltradas.map(v => [
-        v.numero,
-        v.tipo,
-        v.preco,
-        v.hora,
-        v.operador || "-",
-        v.dataISO?.slice(0, 10) || "-"
-      ]),
-      startY: y,
-      theme: "grid",
-      headStyles: { fillColor: [255, 214, 0] },
-      styles: { cellPadding: 1.2, fontSize: 9 }
-    });
+  // Totais por tipo (mini-tabela)
+  doc.setFontSize(11);
+  doc.text("Totais por tipo de pulseira:", 10, y);
+  y += 4;
+  const headTipos = [["Tipo", "Qt.", "Total €"]];
+  const rowsTipos = Object.entries(totaisPorTipo).map(([tipo, info]) => [
+    tipo, info.quantidade, info.valor.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })
+  ]);
+  autoTable(doc, {
+    head: headTipos,
+    body: rowsTipos,
+    startY: y,
+    didDrawPage: () => {},
+    theme: "striped",
+    headStyles: { fillColor: [30, 136, 229] },
+    styles: { cellPadding: 1.2, fontSize: 9 }
+  });
 
-    doc.save("Resumo_Vendas.pdf");
-  }
+  y = doc.lastAutoTable.finalY + 7;
+
+  // Totais por operador (mini-tabela)
+  doc.text("Totais por operador:", 10, y);
+  y += 4;
+  const headOps = [["Operador", "Qt.", "Total €"]];
+  const rowsOps = Object.entries(totaisPorOperador).map(([op, info]) => [
+    op, info.quantidade, info.valor.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })
+  ]);
+  autoTable(doc, {
+    head: headOps,
+    body: rowsOps,
+    startY: y,
+    theme: "striped",
+    headStyles: { fillColor: [46, 125, 50] },
+    styles: { cellPadding: 1.2, fontSize: 9 }
+  });
+
+  y = doc.lastAutoTable.finalY + 9;
+
+  // Tabela completa das vendas visíveis
+  doc.setFontSize(12);
+  doc.text("Vendas listadas:", 10, y);
+  y += 3;
+  autoTable(doc, {
+    head: [["Número", "Tipo", "Valor", "Hora", "Operador", "Método", "Data"]],
+    body: vendasFiltradas.map(v => [
+      v.numero,
+      v.tipo,
+      v.preco,
+      v.hora,
+      v.operador || "-",
+      v.metodoPagamento || "-",
+      v.dataISO?.slice(0, 10) || "-"
+    ]),
+    startY: y,
+    theme: "grid",
+    headStyles: { fillColor: [255, 214, 0] },
+    styles: { cellPadding: 1.2, fontSize: 9 }
+  });
+
+  doc.save("Resumo_Vendas.pdf");
+}
+
 
   return (
     <Paper sx={{ mt: 3, p: 3 }}>
@@ -344,6 +375,7 @@ export default function AdminVendas() {
               <TableCell>Hora</TableCell>
               <TableCell>Operador</TableCell>
               <TableCell>Data</TableCell>
+              <TableCell>Método de Pagamento</TableCell>
               <TableCell>Apagar</TableCell>
             </TableRow>
           </TableHead>
@@ -356,6 +388,7 @@ export default function AdminVendas() {
                 <TableCell>{v.hora}</TableCell>
                 <TableCell>{v.operador || "-"}</TableCell>
                 <TableCell>{v.dataISO?.slice(0, 10) || "-"}</TableCell>
+                <TableCell>{v.metodoPagamento || "-"}</TableCell>
                 <TableCell>
                   <Tooltip title="Apagar venda">
                     <IconButton color="error" onClick={() => apagar(v.id)}>

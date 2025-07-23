@@ -152,7 +152,11 @@ useEffect(() => {
   const [primeiroNumero, setPrimeiroNumero] = useState(1);
   const [novoNumero, setNovoNumero] = useState("");
   const [inputBloqueado, setInputBloqueado] = useState(false);
+  const [metodoPagamento, setMetodoPagamento] = useState("dinheiro");
 
+  useEffect(() => {
+    localStorage.setItem("numeroAtual", numeroAtual.toString());
+  }, [numeroAtual]);
   // Sincronizar vendas Firestore em tempo real
   useEffect(() => {
     if (!turnoAberto) {
@@ -196,6 +200,10 @@ useEffect(() => {
   const vender = useCallback(
     async (tipo) => {
       if (!operador || !turnoAberto) return;
+      if (!metodoPagamento) {
+        alert("Seleciona o método de pagamento.");
+        return;
+      }
       const data = new Date();
        // Promo Família Sáb e Dom: 4 pulseiras = 10€
     if (tipo === "promo_familiar") {
@@ -208,6 +216,7 @@ useEffect(() => {
           hora: data.toLocaleTimeString("pt-PT"),
           operador: operador.nome,
           dataISO: data.toISOString(),
+          metodoPagamento,
         };
         await registarVendaFirestore(novaVenda);
         setNumeroAtual(n => n + 4); // Incrementa logo 4 pulseiras (opcional)
@@ -226,16 +235,17 @@ useEffect(() => {
         hora: data.toLocaleTimeString("pt-PT"),
         operador: operador ? operador.nome : "-",
         dataISO: data.toISOString(),
+        metodoPagamento,
       };
       await registarVendaFirestore(novaVenda);
       setNumeroAtual(n => n + 1);
     },
-    [numeroAtual, operador, turnoAberto]
+    [numeroAtual, operador, turnoAberto, metodoPagamento]
   );
 
   // Vender pulseira azul (número manual)
   async function venderAzul(numeroManual) {
-    if (!operador || !turnoAberto) return;
+    if (!operador || !turnoAberto || !metodoPagamento) return;
     const data = new Date();
     const novaVenda = {
       numero: numeroManual,
@@ -244,6 +254,7 @@ useEffect(() => {
       hora: data.toLocaleTimeString("pt-PT"),
       operador: operador?.nome || "-",
       dataISO: data.toISOString(),
+      metodoPagamento,
     };
     await registarVendaFirestore(novaVenda);
   }
@@ -254,6 +265,10 @@ useEffect(() => {
       alert("Promoção só disponível ao sábado e domingo!");
       return;
     }
+    if (!metodoPagamento) {
+      alert("Seleciona o método de pagamento.");
+      return;
+    }
   
     const novaVenda = {
       numero,
@@ -262,6 +277,7 @@ useEffect(() => {
       hora: data.toLocaleTimeString("pt-PT"),
       operador: operador?.nome || "-",
       dataISO: data.toISOString(),
+      metodoPagamento,
     };
   
     await registarVendaFirestore(novaVenda);
@@ -290,9 +306,9 @@ useEffect(() => {
   const exportarCSV = () => {
     let csv = "Número,Tipo,Valor,Hora,Operador\n";
     vendas.forEach(v => {
-      csv += `${v.numero},${v.tipo},${v.preco},${v.hora},${v.operador || "-"}\n`;
+      csv += `${v.numero},${v.tipo},${v.preco},${v.hora},${v.operador || "-"},${v.metodoPagamento || "-"}\n`;
     });
-    const blob = new Blob([csv], { type: "text/csv" });
+    const blob = new Blob([csv], { type: "text/csv"  });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -310,13 +326,14 @@ useEffect(() => {
         doc.text("Relatório de Vendas de Pulseiras", 10, 10);
         autoTable(doc, {
           startY: 20,
-          head: [["Número", "Tipo", "Valor", "Hora", "Operador"]],
+          head: [["Número", "Tipo", "Valor", "Hora", "Operador", "Método de Pagamento"]],
           body: vendas.map(v => [
             v.numero,
             v.tipo,
             v.preco,
             v.hora,
-            v.operador || "-"
+            v.operador || "-",
+            v.metodoPagamento || "-"
           ])
         });
         doc.save(`vendas_${dataHoje()}.pdf`);
@@ -472,6 +489,8 @@ useEffect(() => {
                 exportarCSV={exportarCSV}
                 exportarPDF={exportarPDF}
                 venderPromoFamiliar={venderPromoFamiliar}
+                metodoPagamento={metodoPagamento}
+                setMetodoPagamento={setMetodoPagamento}
               />
             )}
             {paginaAtual === "historico" && (

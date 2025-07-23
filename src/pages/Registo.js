@@ -48,7 +48,9 @@ export default function Registo({
   venderAzul,
   exportarCSV,
   exportarPDF,
-  venderPromoFamiliar
+  venderPromoFamiliar,
+  metodoPagamento,
+  setMetodoPagamento
 }) {
   const [numeroAzul, setNumeroAzul] = useState("");
   const [openPromoFamiliar, setOpenPromoFamiliar] = useState(false);
@@ -59,6 +61,12 @@ const [numerosPromo, setNumerosPromo] = useState(["", "", "", ""]);
     setNumeroAtual(primeiroNumero);
     setInputBloqueado(true);
   }
+
+  function labelMetodoPagamento(metodo) {
+  if (metodo === "dinheiro") return "💶 Numerário";
+  if (metodo === "multibanco") return "💳 Multibanco";
+  return "-";
+}
 
   // Anular venda (apaga do Firestore)
   async function anularVenda(venda) {
@@ -164,6 +172,19 @@ const [numerosPromo, setNumerosPromo] = useState(["", "", "", ""]);
               mb={3}
               flexWrap="wrap"
             >
+              {/* Seleção do método de pagamento */}
+            <TextField
+              select
+              label="Método de Pagamento"
+              value={metodoPagamento}
+              onChange={(e) => setMetodoPagamento(e.target.value)}
+              size="small"
+              sx={{ width: 200 }}
+              SelectProps={{ native: true }}
+            >
+              <option value="dinheiro">💶 Numerário</option>
+              <option value="multibanco">💳 Multibanco</option>
+            </TextField>
               <Button
                 onClick={() => vender("adulto")}
                 startIcon={<AddIcon />}
@@ -307,62 +328,82 @@ const [numerosPromo, setNumerosPromo] = useState(["", "", "", ""]);
             </Stack>
           )}
 
-          {/* Total */}
-          <Typography variant="h6">
-            Total vendido: {formatMoney(
-              vendas.reduce((acc, v) => acc + parseFloat(v.preco || 0), 0)
-            )}
-          </Typography>
+           {/* Totais detalhados */}
+        <Typography variant="h6" sx={{ mt: 2 }}>
+          Total vendido:
+        </Typography>
+        <Typography>
+          💶 Numerário:{" "}
+          {formatMoney(
+            vendas
+              .filter((v) => v.metodoPagamento === "dinheiro")
+              .reduce((a, v) => a + (parseFloat(v.preco) || 0), 0)
+          )}
+        </Typography>
+        <Typography>
+          💳 Multibanco:{" "}
+          {formatMoney(
+            vendas
+              .filter((v) => v.metodoPagamento === "multibanco")
+              .reduce((a, v) => a + (parseFloat(v.preco) || 0), 0)
+          )}
+        </Typography>
+        <Typography fontWeight={600}>
+          💰 Total:{" "}
+          {formatMoney(
+            vendas.reduce((a, v) => a + (parseFloat(v.preco) || 0), 0)
+          )}
+        </Typography>
 
-          {/* Tabela de vendas */}
-          <TableContainer component={Paper} sx={{ mt: 2 }}>
-            <Table>
-              <TableHead>
-                <TableRow sx={{ bgcolor: "primary.light" }}>
-                  <TableCell sx={{ fontWeight: "bold" }}>Número</TableCell>
-                  <TableCell sx={{ fontWeight: "bold" }}>Tipo</TableCell>
-                  <TableCell sx={{ fontWeight: "bold" }}>Valor</TableCell>
-                  <TableCell sx={{ fontWeight: "bold" }}>Hora</TableCell>
-                  <TableCell sx={{ fontWeight: "bold" }}>Operador</TableCell>
-                  <TableCell sx={{ fontWeight: "bold" }}>Anular</TableCell>
+        <TableContainer component={Paper} sx={{ mt: 2 }}>
+          <Table>
+            <TableHead>
+              <TableRow sx={{ bgcolor: "primary.light" }}>
+                <TableCell sx={{ fontWeight: "bold" }}>Número</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Tipo</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Valor</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Hora</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Operador</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Método</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Anular</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {vendas.map((venda) => (
+                <TableRow
+                  key={venda.id}
+                  style={{
+                    backgroundColor:
+                      venda.tipo === "Pack Família"
+                        ? "#fff8e1"
+                        : venda.tipo.includes("Azul")
+                        ? "#e3f2fd"
+                        : undefined,
+                  }}
+                >
+                  <TableCell>{venda.numero}</TableCell>
+                  <TableCell>{venda.tipo}</TableCell>
+                  <TableCell>{formatMoney(venda.preco)}</TableCell>
+                  <TableCell>{venda.hora}</TableCell>
+                  <TableCell>{venda.operador || "-"}</TableCell>
+                  <TableCell>{labelMetodoPagamento(venda.metodoPagamento)}</TableCell>
+                  <TableCell>
+                    <Tooltip title="Anular">
+                      <IconButton
+                        onClick={() => anularVenda(venda)}
+                        size="small"
+                        color="error"
+                        disabled={venda.operador !== operador?.nome}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {vendas.map((venda) => (
-                  <TableRow
-                    key={venda.id}
-                    style={{
-                      backgroundColor:
-                        venda.tipo === "Pack Família"
-                          ? "#fff8e1"
-                          : venda.tipo.includes("Azul")
-                          ? "#e3f2fd"
-                          : undefined,
-                    }}
-                  >
-                    <TableCell>{venda.numero}</TableCell>
-                    <TableCell>{venda.tipo}</TableCell>
-                    <TableCell>{formatMoney(venda.preco)}</TableCell>
-                    <TableCell>{venda.hora}</TableCell>
-                    <TableCell>{venda.operador || "-"}</TableCell>
-                    <TableCell>
-                      <Tooltip title="Anular">
-                        <IconButton
-                          onClick={() => anularVenda(venda)}
-                          size="small"
-                          color="error"
-                          disabled={venda.operador !== operador?.nome}
-
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
         </div>
         <Dialog open={openPromoFamiliar} onClose={() => setOpenPromoFamiliar(false)}>
   <DialogTitle>Promo Família — Números das 4 Pulseiras</DialogTitle>
