@@ -30,6 +30,8 @@ import AdminVendas from "./pages/AdminVendas";
 import AlertaTempoReal from "./components/AlertaTempoReal";
 import EnviarAlerta from "./pages/EnviarAlerta";
 import Horarios from "./pages/Horarios";
+import ChatInterno from "./components/ChatInterno";
+
 
 
 export default function App() {
@@ -153,6 +155,7 @@ useEffect(() => {
   const [novoNumero, setNovoNumero] = useState("");
   const [inputBloqueado, setInputBloqueado] = useState(false);
   const [metodoPagamento, setMetodoPagamento] = useState("dinheiro");
+
 
   useEffect(() => {
     localStorage.setItem("numeroAtual", numeroAtual.toString());
@@ -498,7 +501,7 @@ useEffect(() => {
             )}
             {paginaAtual === "estatisticas" && <Estatisticas vendas={vendas} />}
             {paginaAtual === "horarios" && (
-  <Horarios operador={operador} utilizadores={utilizadores} />
+            <Horarios operador={operador} utilizadores={utilizadores} />
 )}
 
             {paginaAtual === "admin" && operador?.perfil === "admin" && (
@@ -512,7 +515,8 @@ useEffect(() => {
             )}
             {paginaAtual === "alertas" && operador?.perfil === "admin" && (
   <EnviarAlerta />
-)}
+)}{operador && <ChatInterno operador={operador} />}
+
           </Box>
         </>
       )}
